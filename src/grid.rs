@@ -1,5 +1,6 @@
 use crate::ui;
 use cairo::Context;
+use serde::{Deserialize, Serialize};
 
 pub struct Point {
     pub x: f64,
@@ -11,7 +12,7 @@ pub struct Line {
     pub b: Point,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Square {
     pub col: (u32, u32),
     pub row: (u32, u32),
@@ -89,24 +90,10 @@ impl ui::Render<String> for Square {
     fn render(&self, ctx: &Context) -> Result<(), String> {
         let xwidth = 1.0 / self.col.1 as f64;
         let ywidth = 1.0 / self.row.1 as f64;
-        let x = 0.0 + xwidth * (self.col.0 - 1) as f64;
-        let y = 0.0 + ywidth * (self.row.0 - 1) as f64;
-        println!("Drawing: {:?} {:?}", self, vec![xwidth, ywidth, x, y]);
+        let x = 0.0 + xwidth * self.col.0 as f64;
+        let y = 0.0 + ywidth * self.row.0 as f64;
 
         ctx.rectangle(x, y, xwidth, ywidth);
         Ok(())
     }
 }
-
-// fn vlines(cols: u32) -> Vec<Line> {
-//     let k = 1.0 / cols as f64;
-//     let mut lines = vec![];
-//     let mut cur_x = 0.0;
-
-//     while cur_x <= 1.0 {
-//         let line = Line::new(cur_x, 0.0, cur_x, 1.0);
-//         lines.push(line);
-//         cur_x += k;
-//     }
-//     lines
-// }

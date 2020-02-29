@@ -3,43 +3,58 @@ use cairo::Context;
 use gtk::prelude::*;
 
 use crate::grid;
+use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+#[derive(Serialize, Deserialize)]
+struct GridProperties {
+    size: (f64, f64),
+    // lwidth: f64,
+    grid_size: (u32, u32),
+    grid_rgb: (f64, f64, f64),
+    squares: Vec<grid::Square>,
+}
 
 pub trait Render<E> {
     fn render(&self, ctx: &Context) -> Result<(), E>;
 }
 
-fn draw(_da: &gtk::DrawingArea, ctx: &Context) -> Inhibit {
-    let size = (500f64, 500f64);
-    let lwidth = 1.0 / size.0;
-    let gr_size = (50, 50);
+fn draw(props: &Rc<RefCell<GridProperties>>, ctx: &Context) -> Inhibit {
+    let props = props.borrow();
+    let lwidth = 1.0 / props.size.0;
 
-    ctx.scale(size.0, size.1);
+    ctx.scale(props.size.0, props.size.1);
 
     ctx.set_line_width(lwidth);
-    ctx.set_source_rgb(0.9, 0.9, 0.9);
+    ctx.set_source_rgb(props.grid_rgb.0, props.grid_rgb.1, props.grid_rgb.2);
 
-    for line in grid::grid(gr_size.0, gr_size.1) {
+    for line in grid::grid(props.grid_size.0, props.grid_size.1) {
         line.render(ctx).expect("Line render failed!");
     }
     ctx.stroke();
 
-    grid::Square::new(5, gr_size.0, 5, gr_size.1)
-        .render(ctx)
-        .expect("square render failed!");
-
+    for sq in props.squares.iter() {
+        sq.render(ctx).unwrap()
+    }
     ctx.fill();
 
-    // ctx.stroke();
-    // ctx.set_line_width(0.01);
-    // ctx.set_source_rgba(1.0, 0.2, 0.2, 0.6);
-    // ctx.rectangle(10.0, 10.0, 10.0, 10.0);
-    // ctx.fill();
-
-    // ctx.set_line_width(0.01);
-    // ctx.set_source_rgb(0.9, 0.9, 0.9);
-    // ctx.rectangle(0.01, 0.01, 0.5, 0.5);
-
     Inhibit(false)
+}
+
+fn move_square(props: &Rc<RefCell<GridProperties>>) {
+    let mut props = props.borrow_mut();
+
+    if props.squares.len() == 0 {
+        let square = grid::Square::new(1, props.grid_size.0, 1, props.grid_size.1);
+        props.squares.push(square);
+    } else {
+        let mut square = props.squares.remove(0);
+
+        square.col.0 = (square.col.0 + 1) % square.col.1;
+        square.row.0 = (square.row.0 + 1) % square.row.1;
+        props.squares.push(square);
+    }
 }
 
 pub fn build_ui(app: &gtk::Application) {
@@ -47,10 +62,26 @@ pub fn build_ui(app: &gtk::Application) {
         .resizable(false)
         .application(app)
         .build();
-    let drawing_area = Box::new(gtk::DrawingArea::new)();
 
-    drawing_area.connect_draw(draw);
-    window.set_default_size(500, 500);
+    let props = Rc::new(RefCell::new(GridProperties {
+        size: (500.0, 500.0),
+        grid_size: (50, 50),
+        grid_rgb: (0.9, 0.9, 0.9),
+        squares: vec![],
+    }));
+
+    let drawing_area = Box::new(gtk::DrawingArea::new)();
     window.add(&drawing_area);
+
+    let dprops = Rc::clone(&props);
+    drawing_area.connect_draw(move |_da, ctx| draw(&dprops, ctx));
+
+    window.set_default_size(500, 500);
     window.show_all();
+
+    gtk::timeout_add(100, move || {
+        move_square(&props);
+        drawing_area.queue_draw();
+        Continue(true)
+    });
 }
