@@ -14,3 +14,4 @@ glium = "0.26.0"
 cairo-rs = "0.8.1"
 serde = { version = "1.0.104", features = ["derive"] }
 serde_json = { version = "1.0.48" }
+rand = "0.7.3"

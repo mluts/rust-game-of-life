@@ -2,6 +2,7 @@ use cairo::Context;
 // use gio::prelude::*;
 use gtk::prelude::*;
 
+use crate::game::Game;
 use crate::grid;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -42,20 +43,20 @@ fn draw(props: &Rc<RefCell<GridProperties>>, ctx: &Context) -> Inhibit {
     Inhibit(false)
 }
 
-fn move_square(props: &Rc<RefCell<GridProperties>>) {
-    let mut props = props.borrow_mut();
+// fn move_square(props: &Rc<RefCell<GridProperties>>) {
+//     let mut props = props.borrow_mut();
 
-    if props.squares.len() == 0 {
-        let square = grid::Square::new(1, props.grid_size.0, 1, props.grid_size.1);
-        props.squares.push(square);
-    } else {
-        let mut square = props.squares.remove(0);
+//     if props.squares.len() == 0 {
+//         let square = grid::Square::new(0, props.grid_size.0, 0, props.grid_size.1);
+//         props.squares.push(square);
+//     } else {
+//         let mut square = props.squares.remove(0);
 
-        square.col.0 = (square.col.0 + 1) % square.col.1;
-        square.row.0 = (square.row.0 + 1) % square.row.1;
-        props.squares.push(square);
-    }
-}
+//         square.col.0 = (square.col.0 + 1) % square.col.1;
+//         square.row.0 = (square.row.0 + 1) % square.row.1;
+//         props.squares.push(square);
+//     }
+// }
 
 pub fn build_ui(app: &gtk::Application) {
     let window = gtk::ApplicationWindowBuilder::new()
@@ -63,11 +64,13 @@ pub fn build_ui(app: &gtk::Application) {
         .application(app)
         .build();
 
+    let game = Rc::new(RefCell::new(Game::new(50)));
+
     let props = Rc::new(RefCell::new(GridProperties {
-        size: (500.0, 500.0),
-        grid_size: (50, 50),
+        size: (700.0, 700.0),
+        grid_size: (100, 100),
         grid_rgb: (0.9, 0.9, 0.9),
-        squares: vec![],
+        squares: game.borrow().squares(),
     }));
 
     let drawing_area = Box::new(gtk::DrawingArea::new)();
@@ -76,11 +79,14 @@ pub fn build_ui(app: &gtk::Application) {
     let dprops = Rc::clone(&props);
     drawing_area.connect_draw(move |_da, ctx| draw(&dprops, ctx));
 
-    window.set_default_size(500, 500);
+    window.set_default_size(700, 700);
     window.show_all();
 
-    gtk::timeout_add(100, move || {
-        move_square(&props);
+    gtk::timeout_add(300, move || {
+        let mut g = game.borrow_mut();
+        g.forecast();
+        g.move_to_future();
+        props.borrow_mut().squares = g.squares();
         drawing_area.queue_draw();
         Continue(true)
     });

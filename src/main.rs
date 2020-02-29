@@ -4,6 +4,7 @@ use gio::prelude::*;
 use std::env::args;
 
 pub mod grid;
+pub mod game;
 mod ui;
 
 fn main() {

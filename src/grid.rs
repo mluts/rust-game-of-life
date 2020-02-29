@@ -93,6 +93,7 @@ impl ui::Render<String> for Square {
         let x = 0.0 + xwidth * self.col.0 as f64;
         let y = 0.0 + ywidth * self.row.0 as f64;
 
+        // println!("Square::render {:?}", &self);
         ctx.rectangle(x, y, xwidth, ywidth);
         Ok(())
     }
