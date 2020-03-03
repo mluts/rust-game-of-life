@@ -42,7 +42,7 @@ impl Cell {
 impl Game {
     pub fn new(size: u32) -> Game {
         let cells_cnt = (size * size) as usize;
-        let cells = generate_cells(cells_cnt as u32, 200);
+        let cells = generate_cells(cells_cnt as u32, 5000);
 
         Game {
             cells: cells,
@@ -128,5 +128,10 @@ impl Game {
                 )
             })
             .collect::<Vec<Square>>()
+    }
+
+    pub fn reset(&mut self) {
+        let cells = generate_cells(self.cells_cnt as u32, 5000);
+        self.cells = cells;
     }
 }
