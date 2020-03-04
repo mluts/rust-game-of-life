@@ -2,6 +2,7 @@ use crate::grid;
 use rand::{prelude::*, Rng};
 use std::collections::HashSet;
 
+#[derive(Clone)]
 pub struct Game {
     grid: HashSet<u32>,
     width: u32,
@@ -27,6 +28,10 @@ impl Game {
 
     pub fn height(&self) -> u32 {
         self.height
+    }
+
+    pub fn cells(&self) -> HashSet<u32> {
+        self.grid.clone()
     }
 
     fn cells_cnt(&self) -> u32 {

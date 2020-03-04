@@ -6,26 +6,21 @@ use gtk::prelude::*;
 use glib::clone;
 
 use crate::game::Game;
-use std::sync::mpsc::{sync_channel, Receiver};
+use std::collections::{HashSet, VecDeque};
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{Arc, RwLock};
 
 struct UIProperties {
     grid_rgb: (f64, f64, f64),
     game: Game,
+    timeout_id: Option<glib::source::SourceId>,
 }
 
 pub trait Render<E> {
     fn render(&self, ctx: &Context) -> Result<(), E>;
 }
 
-fn draw(
-    props: &Arc<RwLock<UIProperties>>,
-    render_rx: &Receiver<()>,
-    da: &gtk::DrawingArea,
-    ctx: &Context,
-) -> Inhibit {
-    render_rx.recv().unwrap();
-
+fn draw(props: &Arc<RwLock<UIProperties>>, da: &gtk::DrawingArea, ctx: &Context) -> Inhibit {
     let props = props.read().unwrap();
     let size = da.get_allocation();
     let lwidth = 1.0 / size.width as f64;
@@ -95,25 +90,72 @@ fn add_menu<F: Fn(u32) + 'static>(
     app.add_action(&reset);
 }
 
-fn run_game_loop() -> (Arc<RwLock<UIProperties>>, Receiver<()>) {
-    let (render_tx, render_rx) = sync_channel(0);
+fn run_game_loop() -> (Arc<RwLock<UIProperties>>, SyncSender<u32>) {
+    let (resize_tx, resize_rx) = sync_channel::<u32>(0);
 
     let props = Arc::new(RwLock::new(UIProperties {
         game: Game::new(200, 200, 200 * 200 / 8),
         grid_rgb: (0.9, 0.9, 0.9),
+        timeout_id: None,
     }));
 
+    let mut game_copy: Game;
+
     let pprops = Arc::clone(&props);
+    {
+        game_copy = pprops.read().unwrap().game.clone();
+    }
+    let mut next_cells: VecDeque<HashSet<u32>> = VecDeque::new();
+    next_cells.push_back(game_copy.cells());
 
     std::thread::spawn(move || loop {
-        {
-            let mut props = pprops.write().unwrap();
-            props.game.move_cells();
+        match resize_rx.try_recv() {
+            Ok(n) => {
+                let mut p = pprops.write().unwrap();
+                p.game = Game::new(n, n, n * n / 8);
+                game_copy = p.game.clone();
+                next_cells.clear();
+                next_cells.push_back(game_copy.cells());
+            }
+            _ => (),
         }
-        render_tx.send(()).unwrap();
+        {
+            let cells = next_cells.pop_front().unwrap();
+            let mut props = pprops.write().unwrap();
+            props.game.set_cells(cells);
+        }
+
+        game_copy.move_cells();
+        next_cells.push_back(game_copy.cells());
     });
 
-    (props, render_rx)
+    (props, resize_tx)
+}
+
+fn run_render_loop(props: &Arc<RwLock<UIProperties>>, drawing_area: &gtk::DrawingArea, delay: u32) {
+    let props = Arc::clone(props);
+
+    {
+        let mut p = props.write().unwrap();
+        match std::mem::replace(&mut p.timeout_id, None) {
+            Some(tid) => {
+                glib::source::source_remove(tid);
+            }
+            None => (),
+        }
+    }
+
+    let drawing_area = drawing_area.clone();
+
+    let source_id = gtk::timeout_add(delay, move || {
+        drawing_area.queue_draw();
+        Continue(true)
+    });
+
+    {
+        let mut p = props.write().unwrap();
+        p.timeout_id = Some(source_id);
+    }
 }
 
 pub fn build_ui(app: &gtk::Application) {
@@ -122,23 +164,18 @@ pub fn build_ui(app: &gtk::Application) {
         .application(app)
         .build();
 
-    let (props, render_rx) = run_game_loop();
+    let (props, resize_tx) = run_game_loop();
 
     let drawing_area = Box::new(gtk::DrawingArea::new)();
-    let pprops = Arc::clone(&props);
     add_menu(app, &window, &props, &drawing_area, move |n| {
-        let mut p = pprops.write().unwrap();
-        p.game = Game::new(n, n, n * n / 8);
+        resize_tx.send(n).unwrap();
     });
 
     let dprops = Arc::clone(&props);
-    drawing_area.connect_draw(move |da, ctx| draw(&dprops, &render_rx, da, ctx));
+    drawing_area.connect_draw(move |da, ctx| draw(&dprops, da, ctx));
 
     window.set_default_size(500, 500);
     window.show_all();
 
-    gtk::timeout_add(100, move || {
-        drawing_area.queue_draw();
-        Continue(true)
-    });
+    run_render_loop(&props, &drawing_area, 100);
 }
