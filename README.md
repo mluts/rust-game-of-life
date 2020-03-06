@@ -5,6 +5,14 @@ I've written this to get better at Rust and GTK-rs.
 
 <img src="./example.gif"/>
 
+## Prerequisites
+
+You should have this installed on your system:
+
+* gtk3
+* cairo
+* rust
+
 ## Installation
 
 ```sh
