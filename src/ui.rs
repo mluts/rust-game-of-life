@@ -27,6 +27,9 @@ fn draw(props: &Arc<RwLock<UIProperties>>, da: &gtk::DrawingArea, ctx: &Context)
 
     ctx.scale(size.width as f64, size.height as f64);
 
+    ctx.set_source_rgb(0.0, 0.0, 0.0);
+    ctx.paint();
+
     ctx.set_line_width(lwidth);
     ctx.set_source_rgb(props.grid_rgb.0, props.grid_rgb.1, props.grid_rgb.2);
 
@@ -77,11 +80,11 @@ fn add_menu<F: Fn(u32) + 'static>(
         props.game.generate_cells();
     });
 
-    let window_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let control_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    control_box.pack_start(&gtk::Label::new(Some("Size")), false, false, 0);
+    let window_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
+    let control_box = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+    control_box.pack_start(&gtk::Label::new(Some("Size")), false, false, 5);
     control_box.pack_start(&build_size_entry(resize_f), false, false, 0);
-    window_box.pack_start(&control_box, false, false, 0);
+    window_box.pack_start(&control_box, false, false, 5);
     window_box.pack_start(drawing_area, true, true, 0);
 
     window.add(&window_box);
