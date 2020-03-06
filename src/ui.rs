@@ -50,8 +50,9 @@ fn build_app_menu() -> gio::Menu {
     menu
 }
 
-fn build_size_entry<F: Fn(u32) + 'static>(f: F) -> gtk::Entry {
-    let entry = gtk::Entry::new();
+fn build_size_entry<F: Fn(u32) + 'static>(text: &str, f: F) -> gtk::Entry {
+    let buffer = gtk::EntryBuffer::new(Some(text));
+    let entry = gtk::Entry::new_with_buffer(&buffer);
 
     entry.connect_activate(move |e| match e.get_buffer().get_text().parse::<u32>() {
         Ok(n) => f(n),
@@ -74,16 +75,26 @@ fn add_menu<F: Fn(u32) + 'static>(
     }));
 
     let reset = gio::SimpleAction::new("reset", None);
-    let props = Arc::clone(props);
-    reset.connect_activate(move |_, _| {
-        let mut props = props.write().unwrap();
-        props.game.generate_cells();
-    });
+    {
+        let props = Arc::clone(props);
+        reset.connect_activate(move |_, _| {
+            let mut props = props.write().unwrap();
+            props.game.generate_cells();
+        });
+    }
 
     let window_box = gtk::Box::new(gtk::Orientation::Vertical, 5);
     let control_box = gtk::Box::new(gtk::Orientation::Horizontal, 5);
     control_box.pack_start(&gtk::Label::new(Some("Size")), false, false, 5);
-    control_box.pack_start(&build_size_entry(resize_f), false, false, 0);
+    control_box.pack_start(
+        &build_size_entry(
+            props.read().unwrap().game.width().to_string().as_str(),
+            resize_f,
+        ),
+        false,
+        false,
+        0,
+    );
     window_box.pack_start(&control_box, false, false, 5);
     window_box.pack_start(drawing_area, true, true, 0);
 
